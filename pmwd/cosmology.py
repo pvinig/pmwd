@@ -60,9 +60,9 @@ class Cosmology:
 
     r""" nova configuracao /xi """
     _xi: Optional[ArrayLike] = None
-    xi_fixed: ClassVar[float] = 0.0   
+    xi_fixed: ClassVar[float] = 0.0  # Default value for xi, can be set to Non   
     #xi: ClassVar[float] = 0.0
-    omega_ro: Optional[ArrayLike] = 8.99
+    omega_R0: Optional[ArrayLike] = 8.99*1e-5
 
     Omega_k_: Optional[ArrayLike] = None
     Omega_k_fixed: ClassVar[float] = 0
@@ -173,7 +173,7 @@ class Cosmology:
     def Omega_R0(self):
         """ parametro de densidade de radiacao """
         """ nao havia sido delclarado no modelo anterior, pra onde foi a curvatura (k)? """
-        return self.omega_ro * 1e-5
+        return self.omega_R0
 
     @property
     def Omega_x0(self):
@@ -256,7 +256,7 @@ def E2(a, cosmo):
     a = jnp.asarray(a, dtype=cosmo.conf.cosmo_dtype)
 
 
-    if cosmo.xi is not None:
+    if cosmo.xi is not None: 
         # If xi is set, we assume a different cosmology model
         # This is a placeholder for the actual cosmology model with xi
 
