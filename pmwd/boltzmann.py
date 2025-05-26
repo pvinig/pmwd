@@ -210,7 +210,7 @@ def growth_integ(cosmo, conf):
             Hp_rxc = dlnH_dlna + rxc_xi + 3 # colchetes comum na equacao (25) do paper
  
             G1pp = -(dlnH_dlna + rxc_xi + 5)*G1p - (dlnH_dlna + rxc_xi + 4 - 3*cosmo.Omega_c/2 + r_xc*cosmo.xi*dlnH_dlna - rxc_xi_a2)*G1
-            G2pp = Omega_fac * G1**2 - (4 + Hp_rxc)*G2p - (4 + 2*Hp_rxc - 1.5*cosmo.Omega_c + r_xc*cosmo.xi*dlnH_dlna - rxc_xi_a2)*G2
+            G2pp = Omega_fac * G1**2 - (4 + 2*Hp_rxc - 1.5*cosmo.Omega_c + r_xc*cosmo.xi*dlnH_dlna - rxc_xi_a2)*G2 - (4 + Hp_rxc)*G2p
             return jnp.concatenate((G1p, G1pp, G2p, G2pp), axis=-1)
         else:
             G1pp = -(3 + dlnH_dlna - Omega_fac) * G1 - (4 + dlnH_dlna) * G1p
