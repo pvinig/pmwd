@@ -206,7 +206,7 @@ def growth_integ(cosmo, conf):
 
         if cosmo.xi is not None:
             rxc_xi = (r_xc*cosmo.xi) / a
-            rxc_xi_a2 = (rxc * cosmo.xi /a**2 )*(cosmo.xi + 3*cosmo.w_0_fixed + r_xc*cosmo.xi - a )
+            rxc_xi_a2 = (r_xc * cosmo.xi /a**2 )*(cosmo.xi + 3*cosmo.w_0_fixed + r_xc*cosmo.xi - a )
             Hp_rxc = dlnH_dlna + rxc_xi + 3 # colchetes comum na equacao (25) do paper
  
             G1pp = -(dlnH_dlna + rxc_xi + 5)*G1p - (dlnH_dlna + rxc_xi + 4 - 3*cosmo.Omega_c/2 + r_xc*cosmo.xi*dlnH_dlna - rxc_xi_a2)*G1

@@ -59,7 +59,9 @@ class Cosmology:
     h: ArrayLike
 
     r""" nova configuracao /xi """
-    xi: Optional[ArrayLike] = None
+    _xi: Optional[ArrayLike] = None
+    xi_fixed: ClassVar[float] = 0.0   
+    #xi: ClassVar[float] = 0.0
     omega_ro: Optional[ArrayLike] = 8.99
 
     Omega_k_: Optional[ArrayLike] = None
@@ -171,7 +173,7 @@ class Cosmology:
     def Omega_R0(self):
         """ parametro de densidade de radiacao """
         """ nao havia sido delclarado no modelo anterior, pra onde foi a curvatura (k)? """
-        return self.conf.omega_ro * 1e-5
+        return self.omega_ro * 1e-5
 
     @property
     def Omega_x0(self):
@@ -181,9 +183,8 @@ class Cosmology:
     @property
     def xi(self):
         """ parametro xi """
-        if self.xi is None:
-            return 0.0
-        return self.xi
+        return self.xi_fixed if self._xi is None else self._xi
+   
 
 
 SimpleLCDM = partial(
@@ -193,6 +194,7 @@ SimpleLCDM = partial(
     Omega_m=0.3,
     Omega_b=0.05,
     h=0.7,
+    _xi=None
 )
 SimpleLCDM.__doc__ = "Simple ΛCDM cosmology, for convenience and subject to change."
 
@@ -203,19 +205,21 @@ Planck18 = partial(
     Omega_m=0.3111,
     Omega_b=0.04897,
     h=0.6766,
+    _xi=None
+
 )
 Planck18.__doc__ = "Planck 2018 cosmology, arXiv:1807.06209 Table 2 last column."
 
 Modelo_IDE = partial(
-    comsology,
+    Cosmology,
     A_s_1e9=2.105,
     n_s=0.9665,
     Omega_m=0.3111,
     Omega_b=0.04897,
     h=0.6766,
-    xi = -1.0
+    _xi = -1.0
 )
-Modelo_IDE.__doc__ = f"Modelo Intercao de energia escura, com xi={xi}."
+Modelo_IDE.__doc__ = f"Modelo Intercao de energia escura, com ξ."
 
 
 def E2(a, cosmo):
@@ -261,7 +265,7 @@ def E2(a, cosmo):
         xi_a = (cosmo.xi /(3*cosmo.w_0_fixed + cosmo.xi))*(1- a**(-3*cosmo.w_0_fixed - cosmo.xi)) 
         nova_cosmo = cosmo.Omega_x0 * a**-3 * xi_a + cosmo.Omega_x0 / a**(3 + 3*cosmo.w_0_fixed + cosmo.xi) 
 
-        return cosmo_padrao + novo_cosmo
+        return cosmo_padrao + nova_cosmo
     else:
 
         de_a = a**(-3 * (1 + cosmo.w_0 + cosmo.w_a)) * jnp.exp(-3 * cosmo.w_a * (1 - a))
