@@ -195,14 +195,27 @@ def growth_integ(cosmo, conf):
 
     # TODO necessary to add lpt_order support?
     # G and lna can either be at a single time, or have leading time axes
+
+    # modificao do G foi toda feita aqui dentro
     def ode(G, lna, cosmo):
         a = jnp.exp(lna)
         dlnH_dlna = H_deriv(a, cosmo)
         Omega_fac = 1.5 * Omega_m_a(a, cosmo)
+        r_xc = cosmo.Omega_x0 / cosmo.Omega_c
         G1, G1p, G2, G2p = jnp.split(G, num_order * (num_deriv-1), axis=-1)
-        G1pp = -(3 + dlnH_dlna - Omega_fac) * G1 - (4 + dlnH_dlna) * G1p
-        G2pp = Omega_fac * G1**2 - (8 + 2*dlnH_dlna - Omega_fac) * G2 - (6 + dlnH_dlna) * G2p
-        return jnp.concatenate((G1p, G1pp, G2p, G2pp), axis=-1)
+
+        if cosmo.xi is not None:
+            rxc_xi = (r_xc*cosmo.xi) / a
+            rxc_xi_a2 = (rxc * cosmo.xi /a**2 )*(cosmo.xi + 3*cosmo.w_0_fixed + r_xc*cosmo.xi - a )
+            Hp_rxc = dlnH_dlna + rxc_xi + 3 # colchetes comum na equacao (25) do paper
+ 
+            G1pp = -(dlnH_dlna + rxc_xi + 5)*G1p - (dlnH_dlna + rxc_xi + 4 - 3*cosmo.Omega_c/2 + r_xc*cosmo.xi*dlnH_dlna - rxc_xi_a2)*G1
+            G2pp = Omega_fac * G1**2 - (4 + Hp_rxc)*G2p - (4 + 2*Hp_rxc - 1.5*cosmo.Omega_c + r_xc*cosmo.xi*dlnH_dlna - rxc_xi_a2)*G2
+            return jnp.concatenate((G1p, G1pp, G2p, G2pp), axis=-1)
+        else:
+            G1pp = -(3 + dlnH_dlna - Omega_fac) * G1 - (4 + dlnH_dlna) * G1p
+            G2pp = Omega_fac * G1**2 - (8 + 2*dlnH_dlna - Omega_fac) * G2 - (6 + dlnH_dlna) * G2p
+            return jnp.concatenate((G1p, G1pp, G2p, G2pp), axis=-1)
 
     G_ic = jnp.array((1, 0, 3/7, 0), dtype=conf.cosmo_dtype)
 

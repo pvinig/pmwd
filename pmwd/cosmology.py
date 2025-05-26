@@ -58,6 +58,10 @@ class Cosmology:
     Omega_b: ArrayLike
     h: ArrayLike
 
+    r""" nova configuracao /xi """
+    xi: Optional[ArrayLike] = None
+    omega_ro: Optional[ArrayLike] = 8.99
+
     Omega_k_: Optional[ArrayLike] = None
     Omega_k_fixed: ClassVar[float] = 0
     w_0_: Optional[ArrayLike] = None
@@ -123,6 +127,7 @@ class Cosmology:
         """Primordial scalar power spectrum amplitude."""
         return self.A_s_1e9 * 1e-9
 
+
     @property
     def Omega_c(self):
         """Cold dark matter density parameter today."""
@@ -161,6 +166,26 @@ class Cosmology:
         return self.conf.rho_crit * self.Omega_m * self.conf.ptcl_cell_vol
 
 
+    r""" parametros adicionados para nova configuracao com /xi """
+    @property
+    def Omega_R0(self):
+        """ parametro de densidade de radiacao """
+        """ nao havia sido delclarado no modelo anterior, pra onde foi a curvatura (k)? """
+        return self.conf.omega_ro * 1e-5
+
+    @property
+    def Omega_x0(self):
+        """ parametro de densidade de energia escura (Omega_de) mas considerando a densidade de radiacao """
+        return 1. - (self.Omega_m + self.Omega_k + self.Omega_R0)
+
+    @property
+    def xi(self):
+        """ parametro xi """
+        if self.xi is None:
+            return 0.0
+        return self.xi
+
+
 SimpleLCDM = partial(
     Cosmology,
     A_s_1e9=2.0,
@@ -180,6 +205,17 @@ Planck18 = partial(
     h=0.6766,
 )
 Planck18.__doc__ = "Planck 2018 cosmology, arXiv:1807.06209 Table 2 last column."
+
+Modelo_IDE = partial(
+    comsology,
+    A_s_1e9=2.105,
+    n_s=0.9665,
+    Omega_m=0.3111,
+    Omega_b=0.04897,
+    h=0.6766,
+    xi = -1.0
+)
+Modelo_IDE.__doc__ = f"Modelo Intercao de energia escura, com xi={xi}."
 
 
 def E2(a, cosmo):
@@ -215,8 +251,21 @@ def E2(a, cosmo):
     """
     a = jnp.asarray(a, dtype=cosmo.conf.cosmo_dtype)
 
-    de_a = a**(-3 * (1 + cosmo.w_0 + cosmo.w_a)) * jnp.exp(-3 * cosmo.w_a * (1 - a))
-    return cosmo.Omega_m * a**-3 + cosmo.Omega_k * a**-2 + cosmo.Omega_de * de_a
+
+    if cosmo.xi is not None:
+        # If xi is set, we assume a different cosmology model
+        # This is a placeholder for the actual cosmology model with xi
+
+        cosmo_padrao = cosmo.Omega_R0*a**-4 + cosmo.Omega_b*a**-3 + cosmo.Omega_c*a**-3
+
+        xi_a = (cosmo.xi /(3*cosmo.w_0_fixed + cosmo.xi))*(1- a**(-3*cosmo.w_0_fixed - cosmo.xi)) 
+        nova_cosmo = cosmo.Omega_x0 * a**-3 * xi_a + cosmo.Omega_x0 / a**(3 + 3*cosmo.w_0_fixed + cosmo.xi) 
+
+        return cosmo_padrao + novo_cosmo
+    else:
+
+        de_a = a**(-3 * (1 + cosmo.w_0 + cosmo.w_a)) * jnp.exp(-3 * cosmo.w_a * (1 - a))
+        return cosmo.Omega_m * a**-3 + cosmo.Omega_k * a**-2 + cosmo.Omega_de * de_a
 
 
 @partial(jnp.vectorize, excluded=(1,))
