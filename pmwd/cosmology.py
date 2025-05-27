@@ -60,7 +60,6 @@ class Cosmology:
 
     r""" nova configuracao /xi """
     _xi: Optional[ArrayLike] = None
-    xi_fixed: ClassVar[float] = 0.0  # Default value for xi, can be set to Non   
     #xi: ClassVar[float] = 0.0
     omega_R0: Optional[ArrayLike] = 8.99*1e-5
 
@@ -183,7 +182,7 @@ class Cosmology:
     @property
     def xi(self):
         """ parametro xi """
-        return self.xi_fixed if self._xi is None else self._xi
+        return None if self._xi is None else self._xi
    
 
 
@@ -217,7 +216,7 @@ Modelo_IDE = partial(
     Omega_m=0.3111,
     Omega_b=0.04897,
     h=0.6766,
-    _xi = -1.0
+    _xi = -0.1
 )
 Modelo_IDE.__doc__ = f"Modelo Intercao de energia escura, com ξ."
 
@@ -262,8 +261,8 @@ def E2(a, cosmo):
 
         cosmo_padrao = cosmo.Omega_R0*a**-4 + cosmo.Omega_b*a**-3 + cosmo.Omega_c*a**-3
 
-        xi_a = (cosmo.xi /(3*cosmo.w_0_fixed + cosmo.xi))*(1- a**(-3*cosmo.w_0_fixed - cosmo.xi)) 
-        nova_cosmo = cosmo.Omega_x0 * a**-3 * xi_a + cosmo.Omega_x0 / a**(3 + 3*cosmo.w_0_fixed + cosmo.xi) 
+        xi_a = (cosmo.xi /(3*cosmo.w_0 + cosmo.xi))*(1- a**(-3*cosmo.w_0 - cosmo.xi)) 
+        nova_cosmo = cosmo.Omega_x0 * a**-3 * xi_a + cosmo.Omega_x0 / a**(3 + 3*cosmo.w_0 + cosmo.xi) 
 
         return cosmo_padrao + nova_cosmo
     else:
@@ -320,3 +319,30 @@ def Omega_m_a(a, cosmo):
     a = jnp.asarray(a, dtype=cosmo.conf.cosmo_dtype)
 
     return cosmo.Omega_m / (a**3 * E2(a, cosmo))
+
+def Omega_c_a(a, cosmo):
+    r"""Cold dark matter density parameters, :math:`\Omega_\mathrm{c}(a)`, at given scale
+    factors.
+
+    Parameters
+    ----------
+    a : ArrayLike
+        Scale factors.
+    cosmo : Cosmology
+
+    Returns
+    -------
+    Omega_c : jax.Array of cosmo.conf.cosmo_dtype
+        Cold dark matter density parameters.
+
+    Notes
+    -----
+
+    .. math::
+
+        \Omega_\mathrm{c}(a) = \frac{\Omega_\mathrm{c} a^{-3}}{E^2(a)}
+
+    """
+    a = jnp.asarray(a, dtype=cosmo.conf.cosmo_dtype)
+
+    return (cosmo.Omega_m - cosmo.Omega_b) / (a**3 * E2(a, cosmo))

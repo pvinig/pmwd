@@ -1,7 +1,7 @@
 from jax import jit, custom_vjp, ensure_compile_time_eval
 import jax.numpy as jnp
 
-from pmwd.cosmology import H_deriv, Omega_m_a
+from pmwd.cosmology import H_deriv, Omega_m_a, Omega_c_a
 from pmwd.ode_util import odeint
 
 
@@ -200,17 +200,22 @@ def growth_integ(cosmo, conf):
     def ode(G, lna, cosmo):
         a = jnp.exp(lna)
         dlnH_dlna = H_deriv(a, cosmo)
+        dlnH_conform = 1. + H_deriv(a, cosmo)  # com tempo conforme
         Omega_fac = 1.5 * Omega_m_a(a, cosmo)
-        r_xc = cosmo.Omega_x0 / cosmo.Omega_c
+        Omega_c_fac = 1.5 * Omega_c_a(a, cosmo)
         G1, G1p, G2, G2p = jnp.split(G, num_order * (num_deriv-1), axis=-1)
 
         if cosmo.xi is not None:
+            cosmo_w03 = 3 * cosmo.w_0_ + cosmo.xi
+            r_xc = (cosmo.Omega_x0 * a**(-3 - cosmo_w03)) / (cosmo.Omega_c*a**-3 + cosmo.Omega_x0*a**-3 * (cosmo.xi / cosmo_w03) * (1 - a**(-cosmo_w03)))
+            #r_xc = (cosmo.Omega_x0 / cosmo.Omega_c)*(1/a**(cosmo_w03))*(1 + (cosmo.xi/ cosmo_w03)*(1- a**(-cosmo_w03)))
+
             rxc_xi = (r_xc*cosmo.xi) / a
-            rxc_xi_a2 = (r_xc * cosmo.xi /a**2 )*(cosmo.xi + 3*cosmo.w_0_fixed + r_xc*cosmo.xi - a )
-            Hp_rxc = dlnH_dlna + rxc_xi + 3 # colchetes comum na equacao (25) do paper
+            rxc_xi_a2 = (r_xc * cosmo.xi /a**2 )*(cosmo.xi + 3*cosmo.w_0 + r_xc*cosmo.xi - a )
+            Hp_rxc = dlnH_conform + rxc_xi + 3 # colchetes comum na equacao (25) do paper
  
-            G1pp = -(dlnH_dlna + rxc_xi + 4 - 3*cosmo.Omega_c/2 + r_xc*cosmo.xi*dlnH_dlna - rxc_xi_a2)*G1 - (dlnH_dlna + rxc_xi + 5)*G1p
-            G2pp = Omega_fac * G1**2 - (4 + 2*Hp_rxc - 1.5*cosmo.Omega_c + r_xc*cosmo.xi*dlnH_dlna - rxc_xi_a2)*G2 - (4 + Hp_rxc)*G2p
+            G1pp = -(dlnH_conform + rxc_xi + 4 - Omega_c_fac + r_xc*cosmo.xi*dlnH_conform - rxc_xi_a2)*G1 - (dlnH_conform + rxc_xi + 5)*G1p
+            G2pp = Omega_fac * G1**2 - (4 + 2*Hp_rxc - 1.5*Omega_c_fac + r_xc*cosmo.xi*dlnH_conform - rxc_xi_a2)*G2 - (4 + Hp_rxc)*G2p
             return jnp.concatenate((G1p, G1pp, G2p, G2pp), axis=-1)
         else:
             G1pp = -(3 + dlnH_dlna - Omega_fac) * G1 - (4 + dlnH_dlna) * G1p
