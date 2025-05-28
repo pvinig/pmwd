@@ -200,22 +200,35 @@ def growth_integ(cosmo, conf):
     def ode(G, lna, cosmo):
         a = jnp.exp(lna)
         dlnH_dlna = H_deriv(a, cosmo)
-        dlnH_conform = 1. + H_deriv(a, cosmo)  # com tempo conforme
+        #dlnH_conform = 1.0 + H_deriv(a, cosmo)  # com tempo conforme
+        dlnH_conform =  H_deriv(a, cosmo) / cosmo.h  -1 # com tempo conforme
         Omega_fac = 1.5 * Omega_m_a(a, cosmo)
         Omega_c_fac = 1.5 * Omega_c_a(a, cosmo)
         G1, G1p, G2, G2p = jnp.split(G, num_order * (num_deriv-1), axis=-1)
 
+        #if 1 == 0:
         if cosmo.xi is not None:
-            cosmo_w03 = 3 * cosmo.w_0_ + cosmo.xi
-            r_xc = (cosmo.Omega_x0 * a**(-3 - cosmo_w03)) / (cosmo.Omega_c*a**-3 + cosmo.Omega_x0*a**-3 * (cosmo.xi / cosmo_w03) * (1 - a**(-cosmo_w03)))
-            #r_xc = (cosmo.Omega_x0 / cosmo.Omega_c)*(1/a**(cosmo_w03))*(1 + (cosmo.xi/ cosmo_w03)*(1- a**(-cosmo_w03)))
+            xi = cosmo.xi
+            wx = cosmo.w_0
+            Omega_x0 = cosmo.Omega_x0
+            Omega_c = cosmo.Omega_c
 
-            rxc_xi = (r_xc*cosmo.xi) / a
-            rxc_xi_a2 = (r_xc * cosmo.xi /a**2 )*(cosmo.xi + 3*cosmo.w_0 + r_xc*cosmo.xi - a )
-            Hp_rxc = dlnH_conform + rxc_xi + 3 # colchetes comum na equacao (25) do paper
+            cosmo_w03 = 3.0 * wx + xi
+            r_xc = (Omega_x0 * a**(-3.0 - cosmo_w03)) / (Omega_c*a**-3.0 + Omega_x0*a**-3.0 * (xi / cosmo_w03) * (1.0 - a**(-cosmo_w03)))
+            rxc_xi = (r_xc*xi) / a
+            Hp_rxc = dlnH_conform + rxc_xi + 3.0 # colchetes comum na equacao (25) do paper
+
+            rxc_xi_a2 = (r_xc * xi /a**2.0 )*(xi + 3.0*wx + r_xc*xi - a )
+            omega_c_xi = Omega_c_fac - r_xc*xi*dlnH_conform + rxc_xi_a2
  
-            G1pp = -(dlnH_conform + rxc_xi + 4 - Omega_c_fac + r_xc*cosmo.xi*dlnH_conform - rxc_xi_a2)*G1 - (dlnH_conform + rxc_xi + 5)*G1p
-            G2pp = Omega_fac * G1**2 - (4 + 2*Hp_rxc - 1.5*Omega_c_fac + r_xc*cosmo.xi*dlnH_conform - rxc_xi_a2)*G2 - (4 + Hp_rxc)*G2p
+            #G1pp = -(dlnH_conform + rxc_xi + 4.0 - (Omega_c_fac - r_xc*xi*dlnH_conform + rxc_xi_a2))*G1 - (dlnH_conform + rxc_xi + 5.0)*G1p
+            #G2pp = Omega_fac * G1**2 - (4.0 + 2.0*Hp_rxc - (Omega_c_fac - r_xc*xi*dlnH_conform + rxc_xi_a2))*G2 - (4.0 + Hp_rxc)*G2p
+
+            G1pp = -(dlnH_conform + rxc_xi + 4.0 - omega_c_xi)*G1 - (dlnH_conform + rxc_xi + 5.0)*G1p
+            G2pp = Omega_fac * G1**2 - (4.0 + 2.0*Hp_rxc - omega_c_xi)*G2 - (4.0 + Hp_rxc)*G2p
+
+            #G1pp = -(3 + dlnH_dlna - Omega_fac) * G1 - (4 + dlnH_dlna) * G1p
+            #G2pp = Omega_fac * G1**2 - (8 + 2*dlnH_dlna - Omega_fac) * G2 - (6 + dlnH_dlna) * G2p
             return jnp.concatenate((G1p, G1pp, G2p, G2pp), axis=-1)
         else:
             G1pp = -(3 + dlnH_dlna - Omega_fac) * G1 - (4 + dlnH_dlna) * G1p

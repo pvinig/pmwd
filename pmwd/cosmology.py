@@ -176,7 +176,7 @@ class Cosmology:
 
     @property
     def Omega_x0(self):
-        """ parametro de densidade de energia escura (Omega_de) mas considerando a densidade de radiacao """
+        """ parametro de densidade de energia escura hoje (Omega_de) mas considerando a densidade de radiacao """
         return 1. - (self.Omega_m + self.Omega_k + self.Omega_R0)
 
     @property
@@ -211,11 +211,11 @@ Planck18.__doc__ = "Planck 2018 cosmology, arXiv:1807.06209 Table 2 last column.
 
 Modelo_IDE = partial(
     Cosmology,
-    A_s_1e9=2.105,
-    n_s=0.9665,
-    Omega_m=0.3111,
-    Omega_b=0.04897,
-    h=0.6766,
+    A_s_1e9=2.1,
+    n_s=0.96,
+    Omega_m=0.29,
+    Omega_b=0.05,
+    h=0.68,
     _xi = -0.1
 )
 Modelo_IDE.__doc__ = f"Modelo Intercao de energia escura, com ξ."
@@ -256,11 +256,9 @@ def E2(a, cosmo):
 
 
     if cosmo.xi is not None: 
-        # If xi is set, we assume a different cosmology model
-        # This is a placeholder for the actual cosmology model with xi
+        # considerando a nova configuracao com xi
 
         cosmo_padrao = cosmo.Omega_R0*a**-4 + cosmo.Omega_b*a**-3 + cosmo.Omega_c*a**-3
-
         xi_a = (cosmo.xi /(3*cosmo.w_0 + cosmo.xi))*(1- a**(-3*cosmo.w_0 - cosmo.xi)) 
         nova_cosmo = cosmo.Omega_x0 * a**-3 * xi_a + cosmo.Omega_x0 / a**(3 + 3*cosmo.w_0 + cosmo.xi) 
 
