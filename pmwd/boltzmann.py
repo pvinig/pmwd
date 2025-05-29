@@ -201,7 +201,7 @@ def growth_integ(cosmo, conf):
         a = jnp.exp(lna)
         dlnH_dlna = H_deriv(a, cosmo)
         #dlnH_conform = 1.0 + H_deriv(a, cosmo)  # com tempo conforme
-        dlnH_conform =  H_deriv(a, cosmo) / cosmo.h  -1 # com tempo conforme
+        dlnH_conform =  H_deriv(a, cosmo) / cosmo.h  - 1 # com tempo conforme
         Omega_fac = 1.5 * Omega_m_a(a, cosmo)
         Omega_c_fac = 1.5 * Omega_c_a(a, cosmo)
         G1, G1p, G2, G2p = jnp.split(G, num_order * (num_deriv-1), axis=-1)

@@ -254,13 +254,14 @@ def E2(a, cosmo):
     """
     a = jnp.asarray(a, dtype=cosmo.conf.cosmo_dtype)
 
-
+    #if 1 == 0: 
     if cosmo.xi is not None: 
         # considerando a nova configuracao com xi
 
         cosmo_padrao = cosmo.Omega_R0*a**-4 + cosmo.Omega_b*a**-3 + cosmo.Omega_c*a**-3
-        xi_a = (cosmo.xi /(3*cosmo.w_0 + cosmo.xi))*(1- a**(-3*cosmo.w_0 - cosmo.xi)) 
-        nova_cosmo = cosmo.Omega_x0 * a**-3 * xi_a + cosmo.Omega_x0 / a**(3 + 3*cosmo.w_0 + cosmo.xi) 
+
+        xi_a = (cosmo.xi /(3*cosmo.w_0 + cosmo.xi))*(1 - a**(-3*cosmo.w_0 - cosmo.xi)) 
+        nova_cosmo = (cosmo.Omega_x0 * a**-3) * xi_a + cosmo.Omega_x0 * a**-(3 *(1 + cosmo.w_0) + cosmo.xi) 
 
         return cosmo_padrao + nova_cosmo
     else:
