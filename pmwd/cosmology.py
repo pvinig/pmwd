@@ -59,8 +59,8 @@ class Cosmology:
     h: ArrayLike
 
     r""" nova configuracao /xi """
-    _xi: Optional[ArrayLike] = None
-    #xi: ClassVar[float] = 0.0
+    xi_: Optional[ArrayLike] = None
+    xi_fixed: ClassVar[float] = 0.0
     omega_R0: Optional[ArrayLike] = 8.99*1e-5
 
     Omega_k_: Optional[ArrayLike] = None
@@ -182,7 +182,7 @@ class Cosmology:
     @property
     def xi(self):
         """ parametro xi """
-        return None if self._xi is None else self._xi
+        return None if self.xi_ is None else self.xi_
    
 
 
@@ -193,7 +193,7 @@ SimpleLCDM = partial(
     Omega_m=0.3,
     Omega_b=0.05,
     h=0.7,
-    _xi=None
+    xi_=None
 )
 SimpleLCDM.__doc__ = "Simple ΛCDM cosmology, for convenience and subject to change."
 
@@ -204,7 +204,7 @@ Planck18 = partial(
     Omega_m=0.3111,
     Omega_b=0.04897,
     h=0.6766,
-    _xi=None
+    xi_=None
 
 )
 Planck18.__doc__ = "Planck 2018 cosmology, arXiv:1807.06209 Table 2 last column."
@@ -216,7 +216,7 @@ Modelo_IDE = partial(
     Omega_m=0.29,
     Omega_b=0.05,
     h=0.68,
-    _xi = -0.1
+    xi_ = -0.1
 )
 Modelo_IDE.__doc__ = f"Modelo Intercao de energia escura, com ξ."
 
@@ -263,7 +263,11 @@ def E2(a, cosmo):
         xi_a = (cosmo.xi /(3*cosmo.w_0 + cosmo.xi))*(1 - a**(-3*cosmo.w_0 - cosmo.xi)) 
         nova_cosmo = (cosmo.Omega_x0 * a**-3) * xi_a + cosmo.Omega_x0 * a**-(3 *(1 + cosmo.w_0) + cosmo.xi) 
 
-        return cosmo_padrao + nova_cosmo
+        de_a = a**(-3 * (1 + cosmo.w_0)) * jnp.exp(-3 * (1 - a))
+        #de_a = a**(-3 * (1 + cosmo.w_0 + cosmo.w_a)) * jnp.exp(-3 * cosmo.w_a * (1 - a))
+        #return cosmo_padrao + nova_cosmo
+
+        return cosmo.Omega_m * a**-3 + cosmo.Omega_k * a**-2 + cosmo.Omega_de * de_a + nova_cosmo
     else:
 
         de_a = a**(-3 * (1 + cosmo.w_0 + cosmo.w_a)) * jnp.exp(-3 * cosmo.w_a * (1 - a))

@@ -190,6 +190,7 @@ def growth_integ(cosmo, conf):
 
     a = conf.growth_a
     lna = jnp.log(a.at[0].set(a_ic))
+    rho_crit = conf.rho_crit
 
     num_order, num_deriv, num_a = 2, 3, len(a)
 
@@ -197,11 +198,10 @@ def growth_integ(cosmo, conf):
     # G and lna can either be at a single time, or have leading time axes
 
     # modificao do G foi toda feita aqui dentro
-    def ode(G, lna, cosmo):
+    def ode(G, lna, cosmo, rho_crit=rho_crit):
         a = jnp.exp(lna)
         dlnH_dlna = H_deriv(a, cosmo)
-        #dlnH_conform = 1.0 + H_deriv(a, cosmo)  # com tempo conforme
-        dlnH_conform =  H_deriv(a, cosmo) / cosmo.h  - 1 # com tempo conforme
+        dH_conform = dlnH_dlna - 1.21 # com tempo conforme, deveria ser + 1
         Omega_fac = 1.5 * Omega_m_a(a, cosmo)
         Omega_c_fac = 1.5 * Omega_c_a(a, cosmo)
         G1, G1p, G2, G2p = jnp.split(G, num_order * (num_deriv-1), axis=-1)
@@ -210,22 +210,21 @@ def growth_integ(cosmo, conf):
         if cosmo.xi is not None:
             xi = cosmo.xi
             wx = cosmo.w_0
-            Omega_x0 = cosmo.Omega_x0
-            Omega_c = cosmo.Omega_c
+            rho_x0 = cosmo.Omega_x0 * rho_crit
+            rho_c0 = cosmo.Omega_c * rho_crit
 
             cosmo_w03 = 3.0 * wx + xi
-            r_xc = (Omega_x0 * a**(-3.0 - cosmo_w03)) / (Omega_c*a**-3.0 + Omega_x0*a**-3.0 * (xi / cosmo_w03) * (1.0 - a**(-cosmo_w03)))
-            rxc_xi = (r_xc*xi) / a
-            Hp_rxc = dlnH_conform + rxc_xi + 3.0 # colchetes comum na equacao (25) do paper
+            r_xc = (rho_x0 / a**(3*(1 + wx) + xi)) / (rho_c0*a**-3.0 + rho_x0*a**-3.0 * (xi / cosmo_w03) * (1.0 - a**(-cosmo_w03)))
 
+            Hp_rxc = dH_conform + (r_xc * xi / a) + 3.0  
             rxc_xi_a2 = (r_xc * xi /a**2.0 )*(xi + 3.0*wx + r_xc*xi - a )
-            omega_c_xi = Omega_c_fac - r_xc*xi*dlnH_conform + rxc_xi_a2
+            omega_c_xi = Omega_c_fac - r_xc*xi*dH_conform + rxc_xi_a2
  
-            #G1pp = -(dlnH_conform + rxc_xi + 4.0 - (Omega_c_fac - r_xc*xi*dlnH_conform + rxc_xi_a2))*G1 - (dlnH_conform + rxc_xi + 5.0)*G1p
-            #G2pp = Omega_fac * G1**2 - (4.0 + 2.0*Hp_rxc - (Omega_c_fac - r_xc*xi*dlnH_conform + rxc_xi_a2))*G2 - (4.0 + Hp_rxc)*G2p
 
-            G1pp = -(dlnH_conform + rxc_xi + 4.0 - omega_c_xi)*G1 - (dlnH_conform + rxc_xi + 5.0)*G1p
+            G1pp = -(Hp_rxc + 1 - omega_c_xi)*G1 - (Hp_rxc + 2)*G1p
             G2pp = Omega_fac * G1**2 - (4.0 + 2.0*Hp_rxc - omega_c_xi)*G2 - (4.0 + Hp_rxc)*G2p
+
+            # porque os inteiros tem este tamanho?
 
             #G1pp = -(3 + dlnH_dlna - Omega_fac) * G1 - (4 + dlnH_dlna) * G1p
             #G2pp = Omega_fac * G1**2 - (8 + 2*dlnH_dlna - Omega_fac) * G2 - (6 + dlnH_dlna) * G2p
