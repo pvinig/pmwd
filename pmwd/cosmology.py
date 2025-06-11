@@ -254,17 +254,19 @@ def E2(a, cosmo):
     """
     a = jnp.asarray(a, dtype=cosmo.conf.cosmo_dtype)
 
+
     #if 1 == 0: 
     if cosmo.xi is not None: 
         # considerando a nova configuracao com xi
 
         cosmo_padrao = cosmo.Omega_R0*a**-4 + cosmo.Omega_b*a**-3 + cosmo.Omega_c*a**-3
 
-        xi_a = (cosmo.xi /(3*cosmo.w_0 + cosmo.xi))*(1 - a**(-3*cosmo.w_0 - cosmo.xi)) 
-        nova_cosmo = (cosmo.Omega_x0 * a**-3) * xi_a + cosmo.Omega_x0 * a**-(3 *(1 + cosmo.w_0) + cosmo.xi) 
-
-        de_a = a**(-3 * (1 + cosmo.w_0)) * jnp.exp(-3 * (1 - a))
+        xi_a = (cosmo.xi / (3*cosmo.w_0 + cosmo.xi) )*(1 - a**(-3*cosmo.w_0 - cosmo.xi))
+       
+        de_a = a**(-3 * (1 + cosmo.w_0 + cosmo.w_a) + cosmo.xi) * jnp.exp(-3 * cosmo.w_a * (1 - a))
         #de_a = a**(-3 * (1 + cosmo.w_0 + cosmo.w_a)) * jnp.exp(-3 * cosmo.w_a * (1 - a))
+        nova_cosmo = (cosmo.Omega_de * a**-3) * xi_a
+
         #return cosmo_padrao + nova_cosmo
 
         return cosmo.Omega_m * a**-3 + cosmo.Omega_k * a**-2 + cosmo.Omega_de * de_a + nova_cosmo
@@ -296,7 +298,28 @@ def H_deriv(a, cosmo):
     E2_value, E2_grad = value_and_grad(E2)(a, cosmo)
     return 0.5 * a * E2_grad / E2_value
 
+@partial(jnp.vectorize, excluded=(1,))
+def H_deriv_conform(a, cosmo):
+    r"""Conformal Hubble parameter derivatives, :math:`\mathrm{d}\ln H / \mathrm{d}\ln a`,
+    at given scale factors.
 
+    Parameters
+    ----------
+    a : ArrayLike
+        Scale factors.
+    cosmo : Cosmology
+
+    Returns
+    -------
+    dlnH_dlna : jax.Array of cosmo.conf.cosmo_dtype
+        Conformal Hubble parameter derivatives.
+
+    """
+    a = jnp.asarray(a, dtype=cosmo.conf.cosmo_dtype)
+
+    E2_value, E2_grad = value_and_grad(E2)(a, cosmo)
+    return 0.5 * a * E2_grad / E2_value
+ 
 def Omega_m_a(a, cosmo):
     r"""Matter density parameters, :math:`\Omega_\mathrm{m}(a)`, at given scale factors.
 

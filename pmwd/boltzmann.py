@@ -1,7 +1,7 @@
 from jax import jit, custom_vjp, ensure_compile_time_eval
 import jax.numpy as jnp
 
-from pmwd.cosmology import H_deriv, Omega_m_a, Omega_c_a
+from pmwd.cosmology import H_deriv, Omega_m_a, Omega_c_a, H_deriv_conform
 from pmwd.ode_util import odeint
 
 
@@ -194,6 +194,8 @@ def growth_integ(cosmo, conf):
 
     num_order, num_deriv, num_a = 2, 3, len(a)
 
+    _rho_crit = conf.rho_crit
+
     # TODO necessary to add lpt_order support?
     # G and lna can either be at a single time, or have leading time axes
 
@@ -201,7 +203,7 @@ def growth_integ(cosmo, conf):
     def ode(G, lna, cosmo, rho_crit=rho_crit):
         a = jnp.exp(lna)
         dlnH_dlna = H_deriv(a, cosmo)
-        dH_conform = dlnH_dlna - 1.21 # com tempo conforme, deveria ser + 1
+        #dH_conform = dlnH_dlna + 1 # com tempo conforme, deveria ser + 1
         Omega_fac = 1.5 * Omega_m_a(a, cosmo)
         Omega_c_fac = 1.5 * Omega_c_a(a, cosmo)
         G1, G1p, G2, G2p = jnp.split(G, num_order * (num_deriv-1), axis=-1)
@@ -210,24 +212,28 @@ def growth_integ(cosmo, conf):
         if cosmo.xi is not None:
             xi = cosmo.xi
             wx = cosmo.w_0
-            rho_x0 = cosmo.Omega_x0 * rho_crit
+            rho_x0 = cosmo.Omega_de * rho_crit
             rho_c0 = cosmo.Omega_c * rho_crit
 
-            cosmo_w03 = 3.0 * wx + xi
-            r_xc = (rho_x0 / a**(3*(1 + wx) + xi)) / (rho_c0*a**-3.0 + rho_x0*a**-3.0 * (xi / cosmo_w03) * (1.0 - a**(-cosmo_w03)))
+            cosmo_w03 = 3 * wx + xi
+            r_xc = (rho_x0 / a**(3*(1 + wx) + xi)) / (rho_c0/a**3 + rho_x0*a**-3 * (xi / cosmo_w03) * (1 - a**(-3*wx - xi)))
 
-            Hp_rxc = dH_conform + (r_xc * xi / a) + 3.0  
-            rxc_xi_a2 = (r_xc * xi /a**2.0 )*(xi + 3.0*wx + r_xc*xi - a )
-            omega_c_xi = Omega_c_fac - r_xc*xi*dH_conform + rxc_xi_a2
+            r_xc_a = (r_xc * xi) /  a
+            rxc_xi_a2 = (r_xc * xi / a**2 )*(xi + 3.0*wx + r_xc*xi - a )
+            #omega_c_xi = -r_xc*xi*dlnH_dlna + rxc_xi_a2
+            omega_c_xi = Omega_fac + Omega_c_fac + rxc_xi_a2 - r_xc*xi*dlnH_dlna
+
  
-
-            G1pp = -(Hp_rxc + 1 - omega_c_xi)*G1 - (Hp_rxc + 2)*G1p
-            G2pp = Omega_fac * G1**2 - (4.0 + 2.0*Hp_rxc - omega_c_xi)*G2 - (4.0 + Hp_rxc)*G2p
-
+            #G1pp = -(4 + dlnH_dlna - Omega_fac + r_xc_a + r_xc*xi*dlnH_dlna - rxc_xi_a2) * G1 - (5 + dlnH_dlna + r_xc_a) * G1p
+            #G2pp = Omega_fac * G1**2 - (4 + 2*(dlnH_dlna + r_xc_a + 3) - Omega_fac + r_xc*xi*dlnH_dlna - rxc_xi_a2) * G2 - (7 + dlnH_dlna + r_xc_a) * G2p
             # porque os inteiros tem este tamanho?
+
+            G1pp = -(4 + dlnH_dlna + r_xc_a - omega_c_xi) * G1 - (5 + dlnH_dlna + r_xc_a) * G1p
+            G2pp = Omega_fac * G1**2 - (4 + 2*(dlnH_dlna + r_xc_a + 3) - omega_c_xi) * G2 - (5 + dlnH_dlna + r_xc_a) * G2p
 
             #G1pp = -(3 + dlnH_dlna - Omega_fac) * G1 - (4 + dlnH_dlna) * G1p
             #G2pp = Omega_fac * G1**2 - (8 + 2*dlnH_dlna - Omega_fac) * G2 - (6 + dlnH_dlna) * G2p
+
             return jnp.concatenate((G1p, G1pp, G2p, G2pp), axis=-1)
         else:
             G1pp = -(3 + dlnH_dlna - Omega_fac) * G1 - (4 + dlnH_dlna) * G1p
