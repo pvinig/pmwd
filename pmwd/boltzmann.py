@@ -216,20 +216,20 @@ def growth_integ(cosmo, conf):
             rho_c0 = cosmo.Omega_c * rho_crit
 
             cosmo_w03 = 3 * wx + xi
-            r_xc = (rho_x0 / a**(3*(1 + wx) + xi)) / (rho_c0/a**3 + rho_x0*a**-3 * (xi / cosmo_w03) * (1 - a**(-3*wx - xi)))
+            r_xc = (rho_x0 / a**(3*(1 + wx) + xi)) / (rho_c0/a**3 + rho_x0*a**-3 * (xi / cosmo_w03) * (1 - a**(-cosmo)))
 
             r_xc_a = (r_xc * xi) /  a
             rxc_xi_a2 = (r_xc * xi / a**2 )*(xi + 3.0*wx + r_xc*xi - a )
             #omega_c_xi = -r_xc*xi*dlnH_dlna + rxc_xi_a2
-            omega_c_xi = Omega_fac + Omega_c_fac + rxc_xi_a2 - r_xc*xi*dlnH_dlna
+            omega_c_xi = Omega_c_fac + rxc_xi_a2 - r_xc*xi*dlnH_dlna
 
  
             #G1pp = -(4 + dlnH_dlna - Omega_fac + r_xc_a + r_xc*xi*dlnH_dlna - rxc_xi_a2) * G1 - (5 + dlnH_dlna + r_xc_a) * G1p
             #G2pp = Omega_fac * G1**2 - (4 + 2*(dlnH_dlna + r_xc_a + 3) - Omega_fac + r_xc*xi*dlnH_dlna - rxc_xi_a2) * G2 - (7 + dlnH_dlna + r_xc_a) * G2p
             # porque os inteiros tem este tamanho?
 
-            G1pp = -(4 + dlnH_dlna + r_xc_a - omega_c_xi) * G1 - (5 + dlnH_dlna + r_xc_a) * G1p
-            G2pp = Omega_fac * G1**2 - (4 + 2*(dlnH_dlna + r_xc_a + 3) - omega_c_xi) * G2 - (5 + dlnH_dlna + r_xc_a) * G2p
+            G1pp = -(3 + dlnH_dlna + r_xc_a - omega_c_xi) * G1 - (4 + dlnH_dlna + r_xc_a) * G1p
+            G2pp = Omega_fac * G1**2 - (8 + 2*(dlnH_dlna + r_xc_a) - omega_c_xi) * G2 - (6 + dlnH_dlna + r_xc_a) * G2p
 
             #G1pp = -(3 + dlnH_dlna - Omega_fac) * G1 - (4 + dlnH_dlna) * G1p
             #G2pp = Omega_fac * G1**2 - (8 + 2*dlnH_dlna - Omega_fac) * G2 - (6 + dlnH_dlna) * G2p
