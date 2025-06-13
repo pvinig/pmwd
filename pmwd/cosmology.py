@@ -193,7 +193,8 @@ SimpleLCDM = partial(
     Omega_m=0.3,
     Omega_b=0.05,
     h=0.7,
-    xi_=None
+    xi_=0.0,
+    w_0_ =-1.0
 )
 SimpleLCDM.__doc__ = "Simple ΛCDM cosmology, for convenience and subject to change."
 
@@ -254,26 +255,19 @@ def E2(a, cosmo):
     """
     a = jnp.asarray(a, dtype=cosmo.conf.cosmo_dtype)
 
-
-    #if 1 == 0: 
-    if cosmo.xi is not None: 
-        # considerando a nova configuracao com xi
-
-        cosmo_padrao = cosmo.Omega_R0*a**-4 + cosmo.Omega_b*a**-3 + cosmo.Omega_c*a**-3
-
-        xi_a = (cosmo.xi / (3*cosmo.w_0 + cosmo.xi) )*(1 - a**(-3*cosmo.w_0 - cosmo.xi))
+    xi_a = (cosmo.xi / (3*cosmo.w_0 + cosmo.xi) )*(1 - a**(-3*cosmo.w_0 - cosmo.xi))
        
-        de_a = a**(-3 * (1 + cosmo.w_0 + cosmo.w_a) + cosmo.xi) * jnp.exp(-3 * cosmo.w_a * (1 - a))
-        #de_a = a**(-3 * (1 + cosmo.w_0 + cosmo.w_a)) * jnp.exp(-3 * cosmo.w_a * (1 - a))
-        nova_cosmo = (cosmo.Omega_de * a**-3) * xi_a
+    de_a = a**(-3 * (1 + cosmo.w_0 + cosmo.w_a) + cosmo.xi) * jnp.exp(-3 * cosmo.w_a * (1 - a))
+    nova_cosmo = (cosmo.Omega_de * a**-3) * xi_a
 
-        #return cosmo_padrao + nova_cosmo
+    #de_a = a**(-3 * (1 + cosmo.w_0 + cosmo.w_a)) * jnp.exp(-3 * cosmo.w_a * (1 - a))
+    #return cosmo.Omega_m * a**-3 + cosmo.Omega_k * a**-2 + cosmo.Omega_de * de_a
 
-        return cosmo.Omega_m * a**-3 + cosmo.Omega_k * a**-2 + cosmo.Omega_de * de_a + nova_cosmo
-    else:
 
-        de_a = a**(-3 * (1 + cosmo.w_0 + cosmo.w_a)) * jnp.exp(-3 * cosmo.w_a * (1 - a))
-        return cosmo.Omega_m * a**-3 + cosmo.Omega_k * a**-2 + cosmo.Omega_de * de_a
+    return cosmo.Omega_m * a**-3 + cosmo.Omega_k * a**-2 + cosmo.Omega_de * de_a + nova_cosmo
+
+
+
 
 
 @partial(jnp.vectorize, excluded=(1,))
@@ -297,6 +291,29 @@ def H_deriv(a, cosmo):
 
     E2_value, E2_grad = value_and_grad(E2)(a, cosmo)
     return 0.5 * a * E2_grad / E2_value
+
+@partial(jnp.vectorize, excluded=(1,))
+def R_xc(a, cosmo):
+
+    a = jnp.asarray(a, dtype=cosmo.conf.cosmo_dtype)
+
+    rho_x0 = cosmo.Omega_de * cosmo.conf.rho_crit
+    rho_c0 = cosmo.Omega_c * cosmo.conf.rho_crit
+
+    #rho_c0 = cosmo.Omega_c
+    #rho_x0 = cosmo.Omega_de
+
+    rho_x = rho_x0 / a**(3 * (1 + cosmo.w_0) + cosmo.xi)
+    rho_c = rho_c0 / a**3 + rho_x0 / a**3 * (cosmo.xi / (3 * cosmo.w_0 + cosmo.xi)) * (1 - a**(-3 * cosmo.w_0 - cosmo.xi))
+
+    r_xc = rho_x / rho_c
+
+    r_xc_xi = r_xc * cosmo.xi
+    r_xc_a = r_xc_xi /  a
+    rxc_xi_a2 = (r_xc_xi / a**2 ) * (cosmo.xi + 3.0*cosmo.w_0 + r_xc_xi - a )
+
+    return r_xc_xi, r_xc_a, rxc_xi_a2
+
 
 @partial(jnp.vectorize, excluded=(1,))
 def H_deriv_conform(a, cosmo):
