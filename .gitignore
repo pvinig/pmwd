@@ -1,11 +1,16 @@
 pmwd/_version.py
 pmenv
 env
+penv
+/penv/
+penv/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
-
+docs/notebooks/phase_space_data/
+docs/notebooks/phase_space_data
+/phase_space_data/
 # C extensions
 *.so
 
