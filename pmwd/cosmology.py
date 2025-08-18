@@ -362,7 +362,7 @@ def Omega_m_a(a, cosmo):
 
     a = jnp.asarray(a, dtype=cosmo.conf.cosmo_dtype)
 
-    return (cosmo.Omega_m - cosmo.Omega_b )/ (a**3 * E2(a, cosmo)) + (cosmo.Omega_de/ (a**3 * E2(a, cosmo))) * (cosmo.xi / (3*cosmo.w_0 + cosmo.xi)) * (1 - a**(-3*cosmo.w_0 - cosmo.xi))
+    #return (cosmo.Omega_m - cosmo.Omega_b )/ (a**3 * E2(a, cosmo)) + (cosmo.Omega_de/ (a**3 * E2(a, cosmo))) * (cosmo.xi / (3*cosmo.w_0 + cosmo.xi)) * (1 - a**(-3*cosmo.w_0 - cosmo.xi))
 
     return cosmo.Omega_m / (a**3 * E2(a, cosmo))
 
