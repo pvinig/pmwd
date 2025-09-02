@@ -52,6 +52,7 @@ class Cosmology:
 
     conf: Configuration = field(repr=False)
 
+    
     A_s_1e9: ArrayLike
     n_s: ArrayLike
     Omega_m: ArrayLike
@@ -65,9 +66,17 @@ class Cosmology:
     w_a_: Optional[ArrayLike] = None
     w_a_fixed: ClassVar[float] = 0
 
+    #parametro mu da gravidade modificada
+    mu_0_: Optional[ArrayLike] = None
+    mu_0_fixed: ClassVar[float] = 0
+
+
+
     transfer: Optional[Array] = field(default=None, compare=False)
 
     growth: Optional[Array] = field(default=None, compare=False)
+
+    growth_kgrid: Optional[Array] = field(default=None, compare=False)
 
     varlin: Optional[Array] = field(default=None, compare=False)
 
@@ -159,6 +168,11 @@ class Cosmology:
     def ptcl_mass(self):
         """Particle mass in [M]."""
         return self.conf.rho_crit * self.Omega_m * self.conf.ptcl_cell_vol
+
+    @property
+    def mu_0(self):
+        """Parametro mu da gravidade modificada"""
+        return self.mu_0_fixed if self.mu_0_ is None else self.mu_0_
 
 
 SimpleLCDM = partial(
