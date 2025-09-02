@@ -177,8 +177,8 @@ def growth_integ(cosmo, conf):
 
     num_order, num_deriv, num_a = 2, 3, len(a)
 
-    # μ_k(k) com k angular: mu_k = k^2 / (k^2 + kc^2)
-    # escolhe um k não-angular representativo do conf.transfer_k (k>0)
+    # mu_k(k) com k angular: mu_k = k^2 / (k^2 + kc^2)
+    # k não-angular do conf.transfer_k (k>0)
     k_lin = conf.transfer_k[1].astype(conf.cosmo_dtype)
     two_pi = jnp.asarray(2 * jnp.pi, dtype=conf.cosmo_dtype)
     k_ang = two_pi * k_lin
