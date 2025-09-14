@@ -47,24 +47,29 @@ def gravity(a, ptcl, cosmo, conf):
     # k vetor angular
     kvec = fftfreq(conf.mesh_shape, conf.cell_size, dtype=conf.float_dtype)
 
-    # k^2, "pythagoras"
-    k2 =  jnp.sqrt(sum(k**2 for k in kvec))
 
-    # K de corte, tem que ser float_dtype ou cosmo_dtype
-    kc = jnp.asarray(0.1, dtype=conf.float_dtype)
-
-    # aqui ele nao quebra com k igual a zero
-    mu_k = jnp.where(k2 == 0, 0, k2 / (k2 + kc**2))
 
     dens = scatter(ptcl, conf)
     dens -= 1  # overdensity
 
+    # modificacao da gravidade pela escala
+    # K de corte, tem que ser float_dtype ou cosmo_dtype? 
+    #kc = jnp.asarray(0.1, dtype=conf.float_dtype)
+    k2 = cosmo.k_analyze**2
+    kc = cosmo.k_c
+
+    #k_arr = jnp.asarray(conf.transfer_k, dtype=conf.cosmo_dtype)
+    #scale = jnp.argmin(jnp.abs(k_arr - cosmo.k_analyze))
+    #k2 = conf.transfer_k[scale]**2
+
+    mu_k = k2 / (k2 + kc**2)
+
     # dependência temporal apenas, aqui ta 100%
     mu_0 = cosmo.mu_0
-    mu = (1 + mu_0 / E2(a, cosmo))
-    dens *= mu
+    mu = (1 + mu_k*mu_0 / E2(a, cosmo))
+    #dens *= mu
 
-    dens *= 1.5 * cosmo.Omega_m.astype(conf.float_dtype)
+    dens *= 1.5 * cosmo.Omega_m.astype(conf.float_dtype) * mu
 
     dens = fftfwd(dens)  # normalization canceled by that of irfftn below
 
@@ -72,8 +77,7 @@ def gravity(a, ptcl, cosmo, conf):
 
     #dependência em k no potencial (em Fourier)
 
-    #pot = pot * mu_k
-    pot = pot 
+    pot = pot
 
     acc = []
     for k in kvec:

@@ -177,16 +177,6 @@ def growth_integ(cosmo, conf):
 
     num_order, num_deriv, num_a = 2, 3, len(a)
 
-    # mu_k(k) com k angular: mu_k = k^2 / (k^2 + kc^2)
-    # k não-angular do conf.transfer_k (k>0)
-    k_lin = conf.transfer_k[1].astype(conf.cosmo_dtype)
-    two_pi = jnp.asarray(2 * jnp.pi, dtype=conf.cosmo_dtype)
-    k_ang = two_pi * k_lin
-
-    # escala de corte (float_dtype ou cosmo_dtype), sempre array
-    kc_lin = jnp.asarray(0.1, dtype=conf.cosmo_dtype)
-    kc_ang = two_pi * kc_lin
-    mu_k = (k_ang**2) / (k_ang**2 + kc_ang**2)
 
     # TODO necessary to add lpt_order support?
     # G and lna can either be at a single time, or have leading time axes
@@ -195,13 +185,22 @@ def growth_integ(cosmo, conf):
 
         # μ_total(a,k) = μ_time(a) * μ_k
         #mu = 1 + mu_k*cosmo.mu_0 / E2(a, cosmo)
-        mu = 1 + cosmo.mu_0 / E2(a, cosmo)
-
-        mu_tot = mu 
+        # mu_k(k) com k angular: mu_k = k^2 / (k^2 + kc^2)
+        # k não-angular do conf.transfer_k (k>0)
+        #k_arr = jnp.asarray(conf.transfer_k, dtype=conf.cosmo_dtype)
+        #scale = jnp.argmin(jnp.abs(k_arr - cosmo.k_analyze))
+        #k = conf.transfer_k[scale]**2
+        k = cosmo.k_analyze**2
+        # escala de corte (float_dtype ou cosmo_dtype), sempre array
+        #kc = jnp.asarray(0.1, dtype=conf.cosmo_dtype)
+        kc = cosmo.k_c**2
+        mu_k = k / (k + kc)
+        
+        mu = 1 + (mu_k*cosmo.mu_0 / E2(a, cosmo))
 
         dlnH_dlna = H_deriv(a, cosmo)
         #Omega_fac = 1.5 * Omega_m_a(a, cosmo)
-        Omega_fac = 1.5 * Omega_m_a(a, cosmo) * mu_tot
+        Omega_fac = 1.5 * Omega_m_a(a, cosmo) * mu
         
 
         G1, G1p, G2, G2p = jnp.split(G, num_order * (num_deriv-1), axis=-1)
@@ -457,8 +456,4 @@ def linear_power(k, a, cosmo, conf):
     return Plin.astype(float_dtype)
 
 
-# criar uma classe de funcoes ou so jogar num arquivo?
-def _mu_k_from_k(k, kc, dtype):
-    k2 = k**2
-    return jnp.where(k2 == 0, 0, k2 / (k2 + kc**2)).astype(dtype)
 

@@ -69,6 +69,13 @@ class Cosmology:
     #parametro mu da gravidade modificada
     mu_0_: Optional[ArrayLike] = None
     mu_0_fixed: ClassVar[float] = 0
+    # k de corte da gravidade, em unidades de h/Mpc
+    k_c_: Optional[ArrayLike] = None
+    k_c_fixed: ClassVar[float] = 0.1
+
+    # k que vai ser analisada, em unidades de h/Mpc
+    k_analyze_: Optional[ArrayLike] = None
+    k_analyze_fixed: ClassVar[float] = 0.1
 
 
 
@@ -173,6 +180,14 @@ class Cosmology:
     def mu_0(self):
         """Parametro mu da gravidade modificada"""
         return self.mu_0_fixed if self.mu_0_ is None else self.mu_0_
+    @property
+    def k_c(self):
+        """k de corte da gravidade, em unidades de h/Mpc"""
+        return self.k_c_fixed if self.k_c_ is None else self.k_c_
+    @property
+    def k_analyze(self):
+        """k que vai ser analisada, em unidades de h/Mpc"""
+        return self.k_analyze_fixed if self.k_analyze_ is None else self.k_analyze_
 
 
 SimpleLCDM = partial(
