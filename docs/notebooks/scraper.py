@@ -1,90 +1,200 @@
 import os
-import numpy as np
+import time as ti
+from pathlib import Path
+
 import jax
 import jax.numpy as jnp
-from jax import jit, lax
-import matplotlib.pyplot as plt
+import numpy as np
 
 from pmwd import (
     Configuration,
-    Cosmology, SimpleLCDM,
-    boltzmann, linear_power, growth,
-    white_noise, linear_modes,
+    Cosmology,
+    boltzmann,
+    white_noise,
+    linear_modes,
     lpt,
     nbody,
     scatter,
 )
-from pmwd.nbody import nbody_step, nbody_init
 from pmwd.pm_util import fftinv
 from pmwd.spec_util import powspec
-from pmwd.vis_util import simshow
-
-import Pk_library as PKL
 
 
+def phase_space(cosmo: Cosmology, conf: Configuration, output_dir: str = "data"):
+    """Roda a simulação, calcula espectros linear/não linear e projeta espaço de fase.
 
-
-
-
-
-
-def phase_space(modes, cosmo, conf, output_dir='phase_space_data'):
+    Todos os cálculos usam jax.numpy; os arquivos são salvos em formato .npz comprimido.
     """
-    salva o espaço de fase e o espectro de potência.
-    Pk foi com o pylians q nem a documentação.
-    """
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+    t0 = ti.time()
 
-    omega_m = float(cosmo.Omega_m)
-    h = float(cosmo.h)
-    cosmo_data = f'Omega_m_{omega_m:.2f}_h_{h:.2f}'
+    output_dir = Path(output_dir)
+    pk_nl_dir = output_dir / "pk_nonlinear"
+    pk_lin_dir = output_dir / "pk_linear"
+    phase_dir = output_dir / "phase_space"
+    for directory in (pk_nl_dir, pk_lin_dir, phase_dir):
+        directory.mkdir(parents=True, exist_ok=True)
 
-    cosmo = jax.block_until_ready(boltzmann(cosmo, conf))
-    modes_lin = linear_modes(modes, cosmo, conf)
-    ptcl, obsvbl = jax.block_until_ready(lpt(modes_lin, cosmo, conf))
-    ptcl, obsvbl = jax.block_until_ready(nbody_init(conf.a_nbody[0], ptcl, obsvbl, cosmo, conf))
-    for a_prev, a_next in zip(conf.a_nbody[:-1], conf.a_nbody[1:]):
-       ptcl, obsvbl = jax.block_until_ready(
-            nbody_step(a_prev, a_next, ptcl, obsvbl, cosmo, conf)
-        )
+    # Cosmologia com funções de Boltzmann cacheadas e modos iniciais (seed fixa)
+    cosmo = boltzmann(cosmo, conf)
+    modes = white_noise(0, conf)
+    modes = linear_modes(modes, cosmo, conf)
 
+    # Evolução dinâmica
+    ptcl, obsvbl = lpt(modes, cosmo, conf)
+    ptcl, obsvbl = nbody(ptcl, obsvbl, cosmo, conf)
+
+    # Campo de densidade e contraste
     dens = scatter(ptcl, conf)
-    dens_array = np.array(dens)
-    delta = dens_array / np.mean(dens_array) - 1.0
+    dens = jnp.asarray(dens, dtype=conf.float_dtype)
+    delta = dens / jnp.mean(dens) - 1.0
+    cell_size = float(conf.cell_size)
+
+    # Espectro de potência não linear
+    k_nl, P_nl, _, _ = powspec(delta, cell_size, bins=64, dtype=conf.float_dtype, int_dtype=conf.cosmo_dtype)
+    k_nl = jnp.asarray(k_nl, dtype=conf.cosmo_dtype)
+    P_nl = jnp.asarray(P_nl, dtype=conf.cosmo_dtype)
+
+    # Espectro de potência linear
+    lin_field = fftinv(modes)
+    lin_field = jnp.asarray(lin_field, dtype=conf.float_dtype)
+    k_lin, P_lin, _, _ = powspec(lin_field, cell_size, bins=64, dtype=conf.float_dtype, int_dtype=conf.cosmo_dtype)
+    k_lin = jnp.asarray(k_lin, dtype=conf.cosmo_dtype)
+    P_lin = jnp.asarray(P_lin, dtype=conf.cosmo_dtype)
+
+    # Espaço de fase (projeção 2D da malha dobrada)
+    mesh_shape = tuple(2 * s for s in conf.mesh_shape)
+    mesh = jnp.zeros(mesh_shape, dtype=conf.float_dtype)
+    phase = scatter(ptcl, conf, mesh=mesh, val=1, cell_size=conf.cell_size / 2)
+    phase_2d = jnp.sum(phase, axis=2, dtype=conf.cosmo_dtype).astype(jnp.float32)
+
+    # Metadados
+    meta_str = str(cosmo)
+
+    tag = (
+        f"Om_m_{float(cosmo.Omega_m):.4f}"
+        f"_Om_b_{float(cosmo.Omega_b):.4f}"
+        f"_h_{float(cosmo.h):.4f}"
+        f"_mu0_{float(getattr(cosmo, 'mu_0', 0.0)):.4f}"
+        f"_kc_{float(getattr(cosmo, 'k_c', 0.0)):.4f}"
+        f"_kan_{float(getattr(cosmo, 'k_analyze', 0.0)):.4f}"
+    )
+
+    # Conversão host e salvamento (.npz comprimido)
+    pk_nl_path = pk_nl_dir / f"pk_nonlinear_{tag}.npz"
+    np.savez_compressed(
+        pk_nl_path,
+        k=np.asarray(jax.device_get(k_nl)),
+        P=np.asarray(jax.device_get(P_nl)),
+        meta=np.array(meta_str),
+    )
+
+    pk_lin_path = pk_lin_dir / f"pk_linear_{tag}.npz"
+    np.savez_compressed(
+        pk_lin_path,
+        k=np.asarray(jax.device_get(k_lin)),
+        P=np.asarray(jax.device_get(P_lin)),
+        meta=np.array(meta_str),
+    )
+
+    phase_path = phase_dir / f"phase_space_{tag}.npz"
+    np.savez_compressed(
+        phase_path,
+        phase=np.asarray(jax.device_get(phase_2d)),
+        meta=np.array(meta_str),
+    )
+
+    t1 = ti.time()
+    print(f"Arquivos salvos em {output_dir} (tempo total: {t1 - t0:.2f}s)")
+
+    return {
+        "pk_nonlinear": str(pk_nl_path),
+        "pk_linear": str(pk_lin_path),
+        "phase_space": str(phase_path),
+    }
+
+
+# minha funcao na unha pra salvar o espectro de potencias
+def pk_saver(cosmo: Cosmology, conf: Configuration, output_dir: str = "data"):
+    """Roda a simulação, calcula espectros linear/não linear e salva os arquivos .npz comprimidos.
     
-    box_size = float(conf.box_size[0])
-    mesh_shape = conf.mesh_shape
-    
-    Pk = PKL.Pk(delta, box_size, axis=0, MAS='CIC', threads=1, verbose=False)
-    k_pk = np.column_stack([Pk.k3D, Pk.Pk[:,0]])
-    
-    pk_file = f'pk_pylians_{cosmo_data}.txt'
-    np.savetxt(os.path.join(output_dir, pk_file), 
-               k_pk, fmt='%.5e', 
-               header='k [h/Mpc]    P(k) [(Mpc/h)^3]')
-    mesh = jnp.zeros(tuple(2*s for s in conf.mesh_shape), dtype=conf.float_dtype)
-    phase = scatter(ptcl, conf, mesh=mesh, val=1, cell_size=conf.cell_size/2)
-    phase_2d = phase.sum(axis=2)
-    
-    phase_file = f'phase_space_{cosmo_data}.txt'
-    np.savetxt(os.path.join(output_dir, phase_file), np.array(phase_2d), fmt='%.5e')
-    
-    info_file = f'simulation_info_{cosmo_data}.txt'
-    with open(os.path.join(output_dir, info_file), 'w') as f:
-        f.write("Simulation With these parameters\n")
-        f.write("------------------------\n\n")
-        f.write("Configurations:\n")
-        f.write(f"box_size = {box_size}\n")
-        f.write(f"mesh_shape = {mesh_shape}\n")
-        f.write("Cosmological Parameters:\n")
-        f.write(f"A_s_1e9 = {float(cosmo.A_s_1e9)}\n")
-        f.write(f"n_s = {float(cosmo.n_s)}\n")
-        f.write(f"Omega_m = {omega_m}\n")
-        f.write(f"Omega_b = {float(cosmo.Omega_b)}\n")
-        f.write(f"h = {h}\n")
-        f.write(f"mu_0 = {float(cosmo.mu_0)}\n")
-    print(f'salvo na pasta {output_dir}/ o Pk de {cosmo_data}:')
-    print(f'  - Espaço de fase: {phase_file}')
-    print(f'  - Espectro de potência: {pk_file}')
-    print(f'  - Dados: {info_file}')
+    Todos os cálculos usam jax.numpy; os arquivos são salvos em formato .npz comprimido.
+    """
+    t0 = ti.time()
+
+    output_dir = Path(output_dir)
+    pk_nl_dir = output_dir / "pk_nonlinear"
+    pk_lin_dir = output_dir / "pk_linear"
+    for directory in (pk_nl_dir, pk_lin_dir):
+        directory.mkdir(parents=True, exist_ok=True)
+
+    # Cosmologia com funções de Boltzmann cacheadas e modos iniciais (seed fixa)
+    cosmo = boltzmann(cosmo, conf)
+    modes = white_noise(0, conf)
+    modes = linear_modes(modes, cosmo, conf)
+
+    # Evolução dinâmica
+    ptcl, obsvbl = lpt(modes, cosmo, conf)
+    ptcl, obsvbl = nbody(ptcl, obsvbl, cosmo, conf)
+
+    # Campo de densidade e contraste
+    dens = scatter(ptcl, conf)
+
+    # Espectro de potência não linear
+    k_nl, P_nl, _, _ = powspec(dens, conf.cell_size)
+    k_nl = jnp.asarray(k_nl, dtype=conf.cosmo_dtype)
+    P_nl = jnp.asarray(P_nl, dtype=conf.cosmo_dtype)
+
+    # Espectro de potência linear
+    lin_field = fftinv(modes, shape=conf.ptcl_grid_shape, norm=conf.ptcl_spacing)
+    lin_field = jnp.asarray(lin_field, dtype=conf.float_dtype)
+    k_lin, P_lin, _, _ = powspec(lin_field, conf.cell_size)
+    k_lin = jnp.asarray(k_lin, dtype=conf.cosmo_dtype)
+    P_lin = jnp.asarray(P_lin, dtype=conf.cosmo_dtype)
+
+    # Metadados
+    meta_str = str(cosmo)
+    header_txt = "# " + "\n# ".join(meta_str.splitlines())  + "\n# columns: k   P(k)"
+
+
+    tag = (
+        f"Om_m_{float(cosmo.Omega_m):.4f}"
+        f"_Om_b_{float(cosmo.Omega_b):.4f}"
+        f"_h_{float(cosmo.h):.4f}"
+        f"_mu0_{float(getattr(cosmo, 'mu_0', 0.0)):.4f}"
+        f"_kc_{float(getattr(cosmo, 'k_c', 0.0)):.4f}"
+        f"_kan_{float(getattr(cosmo, 'k_analyze', 0.0)):.4f}"
+    )
+
+    # Conversão host e salvamento (.npz comprimido)
+    pk_nl_path = pk_nl_dir / f"pk_nonlinear_{tag}.npz"
+    np.savez_compressed(
+        pk_nl_path,
+        k=np.asarray(jax.device_get(k_nl)),
+        P=np.asarray(jax.device_get(P_nl)),
+        meta=np.array(meta_str),
+    )
+
+    pk_lin_path = pk_lin_dir / f"pk_linear_{tag}.npz"
+    np.savez_compressed(
+        pk_lin_path,
+        k=np.asarray(jax.device_get(k_lin)),
+        P=np.asarray(jax.device_get(P_lin)),
+        meta=np.array(meta_str),
+    )
+
+    #salvando o espaco de fase, fica comentado pq esse demora mto.
+    #phase_path = phase_dir / f"phase_space_{tag}.npz"
+    #np.savez_compressed(
+    #    phase_path,
+    #    phase=np.asarray(jax.device_get(phase_2d)),
+    #    meta=np.array(meta_str),
+    #)
+
+    t1 = ti.time()
+    print(f"Arquivos salvos em {output_dir} (tempo total: {t1 - t0:.2f}s)")
+
+    return {
+        "pk_nonlinear": str(pk_nl_path),
+        "pk_linear": str(pk_lin_path),
+        #"phase_space": str(phase_path),
+    }

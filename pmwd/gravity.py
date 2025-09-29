@@ -66,7 +66,7 @@ def gravity(a, ptcl, cosmo, conf):
 
     # dependência temporal apenas, aqui ta 100%
     mu_0 = cosmo.mu_0
-    mu = (1 + mu_k*mu_0 / E2(a, cosmo))
+    mu = (1 + (mu_k*mu_0 / E2(a, cosmo)))
     #dens *= mu
 
     dens *= 1.5 * cosmo.Omega_m.astype(conf.float_dtype) * mu
