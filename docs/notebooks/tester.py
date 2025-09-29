@@ -4,7 +4,7 @@ import numpy as np
 import jax
 import jax.numpy as jnp
 
-from scraper import phase_space, pk_saver
+from scraper import pk_saver
 from pmwd import (
     Configuration
     , Cosmology, SimpleLCDM
