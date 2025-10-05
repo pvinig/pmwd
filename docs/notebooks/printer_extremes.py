@@ -23,15 +23,15 @@ conf = Configuration(
     mesh_shape=2 )
 
 
-CSV = os.environ.get("PARAMS_CSV", "lhs_params.csv")
+CSV = os.environ.get("PARAMS_CSV", "lhs_params_EXTREMES.csv")
 
 #idx = int(os.environ["SLURM_ARRAY_TASK_ID"])
 
 with open(CSV) as f:
     r = list(csv.DictReader(f))
 
-for i in range(len(r) - 11347):
-    p = r[11347 + i]
+for i in range(len(r)):
+    p = r[i]
     # Converte para float nativo:
     a   = float(p["A_s_1e9"])
     ns  = float(p["n_s"])

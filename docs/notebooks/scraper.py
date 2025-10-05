@@ -33,8 +33,9 @@ def pk_saver(cosmo: Cosmology, conf: Configuration, output_dir: str = "data"):
 
     output_dir = Path(output_dir)
     pk_nl_dir = output_dir / "pk_nonlinear"
-    pk_lin_dir = output_dir / "pk_linear"
-    for directory in (pk_nl_dir, pk_lin_dir):
+    #pk_lin_dir = output_dir / "pk_linear"
+    #for directory in (pk_nl_dir, pk_lin_dir):
+    for directory in (pk_nl_dir,):
         directory.mkdir(parents=True, exist_ok=True)
 
     # Cosmologia com funções de Boltzmann cacheadas e modos iniciais (seed fixa)
@@ -76,23 +77,24 @@ def pk_saver(cosmo: Cosmology, conf: Configuration, output_dir: str = "data"):
         f"_kc_{float(getattr(cosmo, 'k_c', 0.0)):.4f}"
         f"_kan_{float(getattr(cosmo, 'k_analyze', 0.0)):.4f}"
     )
-
     # Conversão host e salvamento (.npz comprimido)
-    pk_nl_path = pk_nl_dir / f"pk_nonlinear_{tag}.npz"
+    pk_nl_path = pk_nl_dir / f"pk_{tag}.npz"
     np.savez_compressed(
         pk_nl_path,
-        k=np.asarray(jax.device_get(k_nl)),
-        P=np.asarray(jax.device_get(P_nl)),
+        k_nonlinear=np.asarray(jax.device_get(k_nl)),
+        P_nonlinear=np.asarray(jax.device_get(P_nl)),
+        k_linear=np.asarray(jax.device_get(k_lin)),
+        P_linear=np.asarray(jax.device_get(P_lin)),
         meta=np.array(meta_str),
     )
 
-    pk_lin_path = pk_lin_dir / f"pk_linear_{tag}.npz"
-    np.savez_compressed(
-        pk_lin_path,
-        k=np.asarray(jax.device_get(k_lin)),
-        P=np.asarray(jax.device_get(P_lin)),
-        meta=np.array(meta_str),
-    )
+    #pk_lin_path = pk_lin_dir / f"pk_linear_{tag}.npz"
+    #np.savez_compressed(
+    #    pk_lin_path,
+    #    k=np.asarray(jax.device_get(k_lin)),
+    #    P=np.asarray(jax.device_get(P_lin)),
+    #    meta=np.array(meta_str),
+    #)
 
     #salvando o espaco de fase, fica comentado pq esse demora mto.
     #phase_path = phase_dir / f"phase_space_{tag}.npz"
@@ -104,9 +106,11 @@ def pk_saver(cosmo: Cosmology, conf: Configuration, output_dir: str = "data"):
 
     t1 = ti.time()
     print(f"Arquivos salvos em {output_dir} (tempo total: {t1 - t0:.2f}s)")
+    print(f"Salvo a simulacao {tag}")
+    
 
     return {
         "pk_nonlinear": str(pk_nl_path),
-        "pk_linear": str(pk_lin_path),
+    #    "pk_linear": str(pk_lin_path),
         #"phase_space": str(phase_path),
     }

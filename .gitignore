@@ -2,6 +2,7 @@ pmwd/_version.py
 penv/
 venv/
 __pycache__/
+data_f/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
